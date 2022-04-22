@@ -17,9 +17,11 @@ set(SERVER_FILES
 add_executable(client ${CLIENT_FILES})
 target_include_directories(client PRIVATE include)
 target_include_directories(client PRIVATE third_party/asio-1.18.0/include)
+target_include_directories(client PRIVATE third_party/ffmpeg/include)
 target_link_libraries(client PRIVATE Threads::Threads)
 
 add_executable(server ${SERVER_FILES})
 target_include_directories(server PRIVATE include)
 target_include_directories(server PRIVATE third_party/asio-1.18.0/include)
+target_include_directories(server PRIVATE third_party/ffmpeg/include)
 target_link_libraries(server PRIVATE Threads::Threads)
