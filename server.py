@@ -1,35 +1,41 @@
 import socket
 import threading, wave, pyaudio ,pickle,struct
+import youtube_dl, json
+import os
 
+# init
 host_name = socket.gethostname()
 host_ip = '127.0.0.1'#  socket.gethostbyname(host_name)
 port = 3000
-server_socket = socket.socket()
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((host_ip, port))
 server_socket.listen(5)
-CHUNK = 1024
-wf = wave.open("C:/Users/Quang Anh Tran/Downloads/PinkPanther30.wav", 'rb')
+CHUNK = 1024    
 
-p = pyaudio.PyAudio()
-print('server listening at',(host_ip, port))
+# TODO simulate lossy network
 
+def main():
+    while True:
+        print("waiting for client...")
+        client_socket,addr = server_socket.accept()
+        print('server listening at',(host_ip, port))
 
-stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-                channels=wf.getnchannels(),
-                rate=wf.getframerate(),
-                input=True,
-                frames_per_buffer=CHUNK)
+        path = client_socket.recv(CHUNK)
+        while not path:
+            path = client_socket.recv(CHUNK)
 
-            
+        # path = "songs/BabyShark.wav"
+        wf = wave.open(path.decode(), 'rb')
 
-client_socket,addr = server_socket.accept()
-
-data = wf.readframes(CHUNK)
-if client_socket:
-    while data != b"":
-        client_socket.send(data)
+        print("Start streaming")
         data = wf.readframes(CHUNK)
+        # if client_socket:
+        while data != b"":
+            client_socket.send(data)
+            data = wf.readframes(CHUNK)
+        
+        print("End streaming")
+        path = None
+        client_socket.close()
 
-stream.stop_stream()
-stream.close()
-p.terminate()        
+main()    
