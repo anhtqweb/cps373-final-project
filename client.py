@@ -13,6 +13,15 @@ song_list_file = "allsongs.json"
 
 # buffer to store ahead chunks, simulate delays in network
 
+def getCmd(player):
+	while True:
+		userInput = input("Stop?:")
+		if userInput == "y":
+			player.stop_stream()
+			player.close()
+			player.terminate()
+			break
+
 def audio_stream(path):
 	# get rate from server before playing
 	p = pyaudio.PyAudio()
@@ -26,13 +35,14 @@ def audio_stream(path):
 	client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 	socket_address = (host_ip,port)
 	print('SERVER listening at',socket_address)
-	client_socket.connect(socket_address) 
+	client_socket.connect(socket_address)
 	print("CLIENT CONNECTED TO",socket_address)
 
 	# request audio stream from server
 	client_socket.send(path.encode())
 
 	print("Streaming audio...")
+	# threading.Thread(getCmd, p)
 	data = client_socket.recv(CHUNK)
 	while data != b"":
 		stream.write(data)

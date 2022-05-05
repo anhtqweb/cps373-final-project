@@ -10,7 +10,7 @@ port = 3000
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((host_ip, port))
 server_socket.listen(5)
-CHUNK = 1024    
+CHUNK = 1024
 
 # TODO simulate lossy network
 
@@ -24,7 +24,6 @@ def main():
         while not path:
             path = client_socket.recv(CHUNK)
 
-        # path = "songs/BabyShark.wav"
         wf = wave.open(path.decode(), 'rb')
 
         print("Start streaming")
