@@ -1,7 +1,6 @@
 import socket
 import wave
 import youtube_dl, json
-import os
 
 # init
 host_name = socket.gethostname()
@@ -13,7 +12,27 @@ server_socket.listen(5)
 CHUNK_SIZE = 1024
 SONG_LIST_FILE = "allsongs.json"
 
-# TODO simulate lossy network
+def recv_from_client(client_socket):
+    # receive arguments from client
+    res = client_socket.recv(CHUNK_SIZE)
+    data = None
+    while not data and not res:
+        data = client_socket.recv(CHUNK_SIZE)
+        res += data
+    return res.decode()
+
+def audio_stream(path, client_socket):
+    # stream audio files to client
+    wf = wave.open(path, 'rb')
+    print("Start streaming")
+
+    data = wf.readframes(CHUNK_SIZE)
+    while data != b"":
+        client_socket.send(data)
+        data = wf.readframes(CHUNK_SIZE)
+
+    print("End streaming")
+    wf.close()
 
 def main():
     while True:
@@ -21,19 +40,13 @@ def main():
         client_socket,addr = server_socket.accept()
         print('SERVER listening at',(host_ip, port))
 
-
         with open(SONG_LIST_FILE) as data_file:
             json_file_data = json.load(data_file)
         song_list = []
         song_list.extend(json_file_data)
 
-
-        cmd = client_socket.recv(CHUNK_SIZE)
-        data = None
-        while not data and not cmd:
-            data = client_socket.recv(CHUNK_SIZE)
-            cmd += data
-        cmd = cmd.decode()
+        # receive operation type from client
+        cmd = recv_from_client(client_socket)
         
         if cmd == '3':
             ydl_opts = {
@@ -47,30 +60,18 @@ def main():
 				}],
 			}
             
-            name = client_socket.recv(CHUNK_SIZE)
-            song_name = None
-            while not name and not song_name:
-                song_name = client_socket.recv(CHUNK_SIZE)
-                name += song_name
-            name = name.decode()
+            name = recv_from_client(client_socket)
             
             with youtube_dl.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(name, download=False)
                 
             s = ""
             for i,k in enumerate(info['entries']):
-				
                 s += str(i+1) + "." + info['entries'][i]['title'] + "\n"
             client_socket.sendall(s.encode())
 
-			
-            download = client_socket.recv(CHUNK_SIZE)
-            dl_num = None
-            while not download and not dl_num:
-                dl_num = client_socket.recv(CHUNK_SIZE)
-                download += dl_num
-            download = int(download.decode())
-                
+            # receive download information sent from client
+            download = int(recv_from_client(client_socket))
 			
             song_download_url = info['entries'][download-1]['webpage_url']
             song_download_id = info['entries'][download-1]['id']
@@ -84,12 +85,10 @@ def main():
 
 			
             with open(SONG_LIST_FILE, 'w') as outfile:
-				
                 json.dump( song_list, outfile)
 
 
         elif cmd == '2':
-
             songs_num = len(song_list)
             if songs_num == 0:
                 client_socket.sendall('Song list is empty'.encode())
@@ -99,28 +98,13 @@ def main():
                     msg += str(i+1) + '.' + song_list[i]["name"] + "\n"
                 client_socket.sendall(msg.encode())
 
-                play_choice = client_socket.recv(CHUNK_SIZE)
-                num = None
-                while not num and not play_choice:
-                    num = client_socket.recv(CHUNK_SIZE)
-                    play_choice += num
-                play_choice  = play_choice.decode()
+                play_choice = recv_from_client(client_socket)
                 
                 play_choice = int(play_choice)
                 path = 'songs/' + song_list[play_choice - 1]["id"] + '.wav'
                 client_socket.sendall(path.encode())
 
-                wf = wave.open(path, 'rb')
-
-                print("Start streaming")
-                data = wf.readframes(CHUNK_SIZE)
-                # if client_socket:
-                while data != b"":
-                    client_socket.send(data)
-                    data = wf.readframes(CHUNK_SIZE)
-            
-                print("End streaming")
-                wf.close()
+                audio_stream(path, client_socket)
 
         elif cmd == '1':
             songs_num = len(song_list)

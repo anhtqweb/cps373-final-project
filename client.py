@@ -1,7 +1,5 @@
-import json
 import socket
-import threading, pyaudio
-import youtube_dl
+import pyaudio
 import queue
 
 # declare constants
@@ -15,23 +13,7 @@ SONG_LIST_FILE = "allsongs.json"
 BUFFER_SIZE = 128
 CMD_PLAY = "0"
 CMD_DOWNLOAD = "1"
-
-# buffer to store ahead chunks, simulate delays in network
-def audio_download(url):
-	client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-	socket_address = (host_ip,port)
-	print('SERVER listening at',socket_address)
-	client_socket.connect(socket_address)
-	print("CLIENT CONNECTED TO",socket_address)
-
-	url = CMD_DOWNLOAD + url
-	client_socket.send(url.encode())
-
-	data = client_socket.recv(CHUNK_SIZE)
-	while data != b"":
-		data = client_socket.recv(CHUNK_SIZE)
 	
-
 def audio_stream(client_socket):
 	# get rate from server before playing
 	p = pyaudio.PyAudio()
@@ -41,10 +23,9 @@ def audio_stream(client_socket):
 					output=True,
 					frames_per_buffer=CHUNK_SIZE)
 					
-
 	print("Streaming audio...")
-	# t1 = threading.Thread(target=getCmd, args=(stream,))
-	# t1.start()
+
+	# store BUFFER_SIZE chunks of data ahead of playback
 	buffer = queue.Queue()
 	for i in range(BUFFER_SIZE):
 		data = client_socket.recv(CHUNK_SIZE)
@@ -54,33 +35,34 @@ def audio_stream(client_socket):
 	i = 0
 	while not buffer.empty():
 		data = buffer.get()
-		
-	# while data != b"":
 		stream.write(data)
 		rec_data = client_socket.recv(CHUNK_SIZE)
 		if rec_data != b"":
 			buffer.put(rec_data)
 	
-	# t1.join()
-
 	print("End streaming")
 	stream.stop_stream()
 	stream.close()
 	print('Audio closed')
 	p.terminate()
-	# client_socket.close()
 	print("Socket closed")
 
-def main():
-	
+def recv_from_server(client_socket):
+    # receive arguments from client
+    res = client_socket.recv(CHUNK_SIZE)
+    data = None
+    while not data and not res:
+        data = client_socket.recv(CHUNK_SIZE)
+        res += data
+    return res.decode()
 
+def main():
+	socket_address = (host_ip,port)
+	print('SERVER listening at',socket_address)
 
 	while True:
-		
 		# create socket
 		client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-		socket_address = (host_ip,port)
-		print('SERVER listening at',socket_address)
 		client_socket.connect(socket_address)
 		print("CLIENT CONNECTED TO",socket_address)
 
@@ -100,72 +82,33 @@ def main():
 
 			client_socket.sendall(name.encode())
 
-			options = client_socket.recv(CHUNK_SIZE)
-			s = None
-			while not s and not options:
-				s = client_socket.recv(CHUNK_SIZE)
-				options += s
-			options = options.decode()
+			options = recv_from_server(client_socket)
 			print(options)
 
 			download = input('Choose the song you want to download and play: ')
 			client_socket.send(download.encode())
 
-			cf_server = client_socket.recv(CHUNK_SIZE)
-			cf = None
-			while not cf and not cf_server:
-				cf = client_socket.recv(CHUNK_SIZE)
-				cf_server += cf
-			cf_server = cf_server.decode()
+			cf_server = recv_from_server(client_socket)
 			print(cf_server)
 
-				
 		elif choice == 1:
-			'''songs_num = len(song_list)
-			if songs_num == 0:
-				print('Song list is empty')
-			else:
-				for i in range(songs_num):
-					print(i+1, '.', song_list[i]["name"])'''
 			client_socket.sendall('1'.encode())
-			item_server = client_socket.recv(CHUNK_SIZE)
-			
-			item = None
-			while not item and not item_server:
-				item = client_socket.recv(CHUNK_SIZE)
-				item_server += item
-			item_server = item_server.decode()
+			item_server = recv_from_server(client_socket)
 			print(item_server)
 
 		elif choice == 2:
 			client_socket.sendall('2'.encode())
 
-			item_server = client_socket.recv(CHUNK_SIZE)
-			
-			item = None
-			while not item and not item_server:
-				item = client_socket.recv(CHUNK_SIZE)
-				item_server += item
-			item_server = item_server.decode()
+			item_server = recv_from_server(client_socket)
 			print(item_server)
 
 			play_choice = input('You want to play song number: ')
 
 			client_socket.sendall(play_choice.encode())
 
-			path = client_socket.recv(CHUNK_SIZE)
-			p = None
-			while not p and not path:
-				p = client_socket.recv(CHUNK_SIZE)
-				path += p
-			path = path.decode()
-
-			# request server for songs using path, open connection for streaming
 			audio_stream(client_socket)
-
 
 		elif choice == 4:
 			break
-
 
 main()
