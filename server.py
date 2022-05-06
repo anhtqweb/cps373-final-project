@@ -1,5 +1,5 @@
 import socket
-import threading, wave, pyaudio ,pickle,struct
+import wave
 import youtube_dl, json
 import os
 
