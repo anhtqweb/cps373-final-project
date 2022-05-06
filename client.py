@@ -56,15 +56,19 @@ def audio_stream(path):
 	# t1 = threading.Thread(target=getCmd, args=(stream,))
 	# t1.start()
 	buffer = queue.Queue()
-	# for i in range(BUFFER_SIZE):
-	data = client_socket.recv(CHUNK_SIZE)
-		# buffer.put(data)
-
-	# while not buffer.empty():
-		# data = buffer.get()
-	while data != b"":
-		stream.write(data)
+	for i in range(BUFFER_SIZE):
 		data = client_socket.recv(CHUNK_SIZE)
+		if data != b"":
+			buffer.put(data)
+
+	i = 0
+	while not buffer.empty():
+		data = buffer.get()
+	# while data != b"":
+		stream.write(data)
+		rec_data = client_socket.recv(CHUNK_SIZE)
+		if rec_data != b"":
+			buffer.put(rec_data)
 	
 	# t1.join()
 
