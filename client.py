@@ -1,26 +1,36 @@
 import json
-import socket,os
-import threading, wave, pyaudio, pickle,struct
+import socket
+import threading, pyaudio
 import youtube_dl
+import queue
 
+# declare constants
 host_name = socket.gethostname()
 host_ip = '127.0.0.1'#  socket.gethostbyname(host_name)
 port = 3000
-CHUNK = 1024
+CHUNK_SIZE = 1024
 CHANNELS = 2
 RATE = 44100
-song_list_file = "allsongs.json"
+SONG_LIST_FILE = "allsongs.json"
+BUFFER_SIZE = 128
+CMD_PLAY = "0"
+CMD_DOWNLOAD = "1"
 
 # buffer to store ahead chunks, simulate delays in network
+def audio_download(url):
+	client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	socket_address = (host_ip,port)
+	print('SERVER listening at',socket_address)
+	client_socket.connect(socket_address)
+	print("CLIENT CONNECTED TO",socket_address)
 
-def getCmd(player):
-	while True:
-		userInput = input("Stop?:")
-		if userInput == "y":
-			player.stop_stream()
-			player.close()
-			player.terminate()
-			break
+	url = CMD_DOWNLOAD + url
+	client_socket.send(url.encode())
+
+	data = client_socket.recv(CHUNK_SIZE)
+	while data != b"":
+		data = client_socket.recv(CHUNK_SIZE)
+	
 
 def audio_stream(path):
 	# get rate from server before playing
@@ -29,7 +39,7 @@ def audio_stream(path):
 					channels=CHANNELS,
 					rate=RATE,
 					output=True,
-					frames_per_buffer=CHUNK)
+					frames_per_buffer=CHUNK_SIZE)
 					
 	# create socket
 	client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -39,14 +49,24 @@ def audio_stream(path):
 	print("CLIENT CONNECTED TO",socket_address)
 
 	# request audio stream from server
+	path = CMD_PLAY + path
 	client_socket.send(path.encode())
 
 	print("Streaming audio...")
-	# threading.Thread(getCmd, p)
-	data = client_socket.recv(CHUNK)
+	# t1 = threading.Thread(target=getCmd, args=(stream,))
+	# t1.start()
+	buffer = queue.Queue()
+	# for i in range(BUFFER_SIZE):
+	data = client_socket.recv(CHUNK_SIZE)
+		# buffer.put(data)
+
+	# while not buffer.empty():
+		# data = buffer.get()
 	while data != b"":
 		stream.write(data)
-		data = client_socket.recv(CHUNK)
+		data = client_socket.recv(CHUNK_SIZE)
+	
+	# t1.join()
 
 	print("End streaming")
 	stream.stop_stream()
@@ -58,7 +78,7 @@ def audio_stream(path):
 
 def main():
 	while True:
-		with open(song_list_file) as data_file:
+		with open(SONG_LIST_FILE) as data_file:
 			json_file_data = json.load(data_file)
 
 		song_list = []
@@ -92,21 +112,23 @@ def main():
 			for i,k in enumerate(info['entries']):
 				print(i+1, '.', info['entries'][i]['title'])
 
-			download_action = input('Enter yes if you want to download a song. Enter no if you do not want to download anything. /n >>>')
-			if download_action == 'yes':
-				download = int(input('Choose the song you want to download: '))
-				song_download_url = info['entries'][download-1]['webpage_url']
-				song_download_id = info['entries'][download-1]['id']
-				song_download_name = info['entries'][download-1]['title']
-				song_download_obj = {"name": song_download_name, "id":song_download_id}
-				song_list.append(song_download_obj)
-				with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-					# print(info['entries'][download-1]['webpage_url'])
-					
-					ydl.download([song_download_url])
+			download = int(input('Choose the song you want to download and play: '))
+			song_download_url = info['entries'][download-1]['webpage_url']
+			song_download_id = info['entries'][download-1]['id']
+			song_download_name = info['entries'][download-1]['title']
+			song_download_obj = {"name": song_download_name, "id":song_download_id}
+			song_list.append(song_download_obj)
+			with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+				# print(info['entries'][download-1]['webpage_url'])
 				
-				with open(song_list_file, 'w') as outfile:
-					json.dump( song_list, outfile)
+				# ydl.download([song_download_url])
+				audio_download(song_download_url)
+			
+			with open(SONG_LIST_FILE, 'w') as outfile:
+				json.dump( song_list, outfile)
+
+			path = "songs/" + song_download_id + ".wav"
+			audio_stream(path)
 				
 		elif choice == 1:
 			songs_num = len(song_list)
