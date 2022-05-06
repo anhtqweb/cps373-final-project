@@ -26,7 +26,7 @@ A music streaming application in Python using ```socket```, ```pyaudio```, ```yo
     ```
 - ```ffmpeg```:
   - For Windows: download executable of ```ffmpeg``` from https://www.gyan.dev/ffmpeg/builds/. Then, extract and put the executables to the ```Scripts``` folder of ```Python```.
-  - For macOS:
+  - For macOS: git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
 # How to run
 - First run the server.
 ```

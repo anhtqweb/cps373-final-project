@@ -1,0 +1,4 @@
+/Users/heliadinh/Desktop/cs'22/networking/final project/cps373-final-project/build/CMakeFiles/client.dir
+/Users/heliadinh/Desktop/cs'22/networking/final project/cps373-final-project/build/CMakeFiles/server.dir
+/Users/heliadinh/Desktop/cs'22/networking/final project/cps373-final-project/build/CMakeFiles/edit_cache.dir
+/Users/heliadinh/Desktop/cs'22/networking/final project/cps373-final-project/build/CMakeFiles/rebuild_cache.dir

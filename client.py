@@ -32,7 +32,7 @@ def audio_download(url):
 		data = client_socket.recv(CHUNK_SIZE)
 	
 
-def audio_stream(path):
+def audio_stream(client_socket):
 	# get rate from server before playing
 	p = pyaudio.PyAudio()
 	stream = p.open(format=p.get_format_from_width(2),
@@ -41,16 +41,6 @@ def audio_stream(path):
 					output=True,
 					frames_per_buffer=CHUNK_SIZE)
 					
-	# create socket
-	client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-	socket_address = (host_ip,port)
-	print('SERVER listening at',socket_address)
-	client_socket.connect(socket_address)
-	print("CLIENT CONNECTED TO",socket_address)
-
-	# request audio stream from server
-	path = CMD_PLAY + path
-	client_socket.send(path.encode())
 
 	print("Streaming audio...")
 	# t1 = threading.Thread(target=getCmd, args=(stream,))
@@ -64,6 +54,7 @@ def audio_stream(path):
 	i = 0
 	while not buffer.empty():
 		data = buffer.get()
+		
 	# while data != b"":
 		stream.write(data)
 		rec_data = client_socket.recv(CHUNK_SIZE)
@@ -77,16 +68,21 @@ def audio_stream(path):
 	stream.close()
 	print('Audio closed')
 	p.terminate()
-	client_socket.close()
+	# client_socket.close()
 	print("Socket closed")
 
 def main():
-	while True:
-		with open(SONG_LIST_FILE) as data_file:
-			json_file_data = json.load(data_file)
+	
 
-		song_list = []
-		song_list.extend(json_file_data)
+
+	while True:
+		
+		# create socket
+		client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+		socket_address = (host_ip,port)
+		print('SERVER listening at',socket_address)
+		client_socket.connect(socket_address)
+		print("CLIENT CONNECTED TO",socket_address)
 
 		print('Pick one option:')
 		print('1. Show ALL songs')
@@ -97,62 +93,76 @@ def main():
 		choice = int(input('>>> '))
 
 		if choice == 3:
-			ydl_opts = {
-			'outtmpl': 'songs/%(id)s.%(ext)s',
-			'default_search': "ytsearch5",
-			'format': 'bestaudio/best',
-			'postprocessors': [{
-				'key': 'FFmpegExtractAudio',
-				'preferredcodec': 'wav',
-				'preferredquality': '192',
-				}],
-			}
+
+			client_socket.sendall('3'.encode())
 
 			name = input('Enter the name of a song you want to search: ')
 
-			with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-				info = ydl.extract_info(name, download=False)
+			client_socket.sendall(name.encode())
 
-			for i,k in enumerate(info['entries']):
-				print(i+1, '.', info['entries'][i]['title'])
+			options = client_socket.recv(CHUNK_SIZE)
+			s = None
+			while not s and not options:
+				s = client_socket.recv(CHUNK_SIZE)
+				options += s
+			options = options.decode()
+			print(options)
 
-			download = int(input('Choose the song you want to download and play: '))
-			song_download_url = info['entries'][download-1]['webpage_url']
-			song_download_id = info['entries'][download-1]['id']
-			song_download_name = info['entries'][download-1]['title']
-			song_download_obj = {"name": song_download_name, "id":song_download_id}
-			song_list.append(song_download_obj)
-			with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-				# print(info['entries'][download-1]['webpage_url'])
-				
-				# ydl.download([song_download_url])
-				audio_download(song_download_url)
-			
-			with open(SONG_LIST_FILE, 'w') as outfile:
-				json.dump( song_list, outfile)
+			download = input('Choose the song you want to download and play: ')
+			client_socket.send(download.encode())
 
-			path = "songs/" + song_download_id + ".wav"
-			audio_stream(path)
+			cf_server = client_socket.recv(CHUNK_SIZE)
+			cf = None
+			while not cf and not cf_server:
+				cf = client_socket.recv(CHUNK_SIZE)
+				cf_server += cf
+			cf_server = cf_server.decode()
+			print(cf_server)
+
 				
 		elif choice == 1:
-			songs_num = len(song_list)
+			'''songs_num = len(song_list)
 			if songs_num == 0:
 				print('Song list is empty')
 			else:
 				for i in range(songs_num):
-					print(i+1, '.', song_list[i]["name"])
-		elif choice == 2:
-			songs_num = len(song_list)
-			if songs_num == 0:
-				print('Song list is empty')
-			else:
-				for i in range(songs_num):
-					print(i+1, '.', song_list[i]["name"])
+					print(i+1, '.', song_list[i]["name"])'''
+			client_socket.sendall('1'.encode())
+			item_server = client_socket.recv(CHUNK_SIZE)
+			
+			item = None
+			while not item and not item_server:
+				item = client_socket.recv(CHUNK_SIZE)
+				item_server += item
+			item_server = item_server.decode()
+			print(item_server)
 
-				play_choice = int(input('You want to play song number: '))
-				path = 'songs/' + song_list[play_choice - 1]["id"] + '.wav'
-				# request server for songs using path, open connection for streaming
-				audio_stream(path)
+		elif choice == 2:
+			client_socket.sendall('2'.encode())
+
+			item_server = client_socket.recv(CHUNK_SIZE)
+			
+			item = None
+			while not item and not item_server:
+				item = client_socket.recv(CHUNK_SIZE)
+				item_server += item
+			item_server = item_server.decode()
+			print(item_server)
+
+			play_choice = input('You want to play song number: ')
+
+			client_socket.sendall(play_choice.encode())
+
+			path = client_socket.recv(CHUNK_SIZE)
+			p = None
+			while not p and not path:
+				p = client_socket.recv(CHUNK_SIZE)
+				path += p
+			path = path.decode()
+
+			# request server for songs using path, open connection for streaming
+			audio_stream(client_socket)
+
 
 		elif choice == 4:
 			break
